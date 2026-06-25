@@ -1,0 +1,14 @@
+# Local Domo CLI session — holds live credentials, never commit
+.domo_cli/
+
+# Secrets
+.env
+
+# Machine-specific Python environment (no venv ships with this template)
+.venv/
+
+# IDE
+.idea/
+
+# OS cruft
+.DS_Store
