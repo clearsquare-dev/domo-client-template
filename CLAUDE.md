@@ -87,20 +87,47 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 ---
 
-### Fallback: SID session flow (only if no token)
+### Fallback: Domo CLI / SID session (when no developer token)
 
-Use this **only** when `DOMO_ACCESS_TOKEN` is not set (e.g. an instance not yet
-migrated to a token). This path parses JSON and therefore uses `python3`
-(preinstalled on macOS and most Linux). SIDs expire after ~1 hour; re-run on a 401.
+Use this when `DOMO_ACCESS_TOKEN` is not set — e.g. an instance where you can
+only sign in interactively and cannot mint an access token. This path reaches the
+**same internal endpoints** as the developer token, so every skill (including
+`domo-dataflow`) works at full capability. It parses JSON, so it uses `python3`
+(preinstalled on macOS and most Linux).
+
+> **Prerequisite — a one-time human login the agent CANNOT perform.**
+> `domo login` is an interactive browser flow. A human must run it once, scoped
+> to the project jail, after installing the Domo CLI:
+>
+> ```bash
+> export XDG_CONFIG_HOME="$PWD/.domo_cli" && domo login -i <instance>.domo.com
+> ```
+>
+> This writes `./.domo_cli/configstore/ryuu/<instance>.domo.com.json` containing a
+> long-lived `refreshToken`.
+
+**Agent rules for this path:**
+
+1. **Check for the session file first.** If
+   `./.domo_cli/configstore/ryuu/$DOMO_INSTANCE.json` does not exist, **STOP and
+   ask the human to run the login command above.** Never attempt to automate the
+   browser login.
+2. **If the session exists, derive a SID autonomously** with the snippet below.
+3. **Header:** send the SID as `X-Domo-Authentication: $SID` against the internal
+   `https://$DOMO_INSTANCE/api/...` endpoints (the ones every skill uses).
+4. **Lifetime:** the SID expires after ~1 hour. On a `401`, **re-run the exchange
+   below — do NOT re-login.** The `refreshToken` is long-lived. Only ask the human
+   to re-login if the refresh token itself is rejected.
 
 ```bash
 # 1. Load instance from .env
 if [ -f .env ]; then export $(grep -v '^#' .env | xargs); fi
 
-# 2. Local config path (the "jail")
+# 2. Local session path (the "jail")
 LOCAL_CONFIG="./.domo_cli/configstore/ryuu/$DOMO_INSTANCE.json"
 
 if [ -f "$LOCAL_CONFIG" ]; then
+  # 3. refresh_token -> access_token -> SID
   REFRESH_TOKEN=$(python3 -c "import json; print(json.load(open('$LOCAL_CONFIG'))['refreshToken'])")
 
   ACCESS_TOKEN=$(curl -s -X POST "https://$DOMO_INSTANCE/api/oauth2/token" \
@@ -114,7 +141,8 @@ if [ -f "$LOCAL_CONFIG" ]; then
 
   # Use SID in header: "X-Domo-Authentication: $SID"
 else
-  echo "No local session. Run: export XDG_CONFIG_HOME=\"\$PWD/.domo_cli\" && domo login"
+  echo "No local session. A human must run:"
+  echo "  export XDG_CONFIG_HOME=\"\$PWD/.domo_cli\" && domo login -i $DOMO_INSTANCE"
 fi
 ```
 

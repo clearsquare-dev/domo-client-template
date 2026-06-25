@@ -37,6 +37,8 @@ Uncomment and set extra vars in `.env` as needed, e.g.
 ### What's already wired up
 - The four Domo skills under `.claude/skills/` — Claude Code auto-discovers them,
   no install needed.
-- Token-first auth (no Python / `jq` required). A SID fallback is documented in
-  `CLAUDE.md` for instances without a token.
+- Token-first auth (no Python / `jq` required). For instances where you can't
+  mint an access token, a Domo CLI / SID fallback is documented in `CLAUDE.md` —
+  it needs a one-time interactive `domo login` but gives full capability
+  (including dataflows).
 - `.env`, `.venv/`, `.domo_cli/`, and `.idea/` are gitignored.
