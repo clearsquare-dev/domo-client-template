@@ -25,9 +25,22 @@ Built for Clearsquare's Domo implementation work; self-contained so any teammate
 | `domo-dataflow` | Read and modify Magic ETL dataflows. |
 | `domo-apps` | Build and deploy Domo Custom Apps. |
 
+## For coworkers: how to use this template
+
+**Do not `git clone` this template directly to do client work.** A direct clone keeps this template's history and points `origin` back here — client commits would target the template. Instead, generate a fresh, independent repo per client:
+
+- **Web:** On this repo's page, click **Use this template → Create a new repository**, name it for the client (e.g. `domo-acme`), set it **private**, and create. Then clone *that* new repo.
+- **CLI:**
+  ```bash
+  gh repo create clearsquare-dev/domo-acme --template clearsquare-dev/domo-client-template --private --clone
+  cd domo-acme
+  ```
+
+This gives a clean repo with the client as `origin` and no link back to the template. (Cloning this template directly is only for reading it or improving the template itself.)
+
 ## Quick start
 
-1. Click **Use this template** on GitHub to create a client repo.
+1. Use the template to create a client repo (see above).
 2. Configure credentials:
    ```bash
    cp .env.example .env
