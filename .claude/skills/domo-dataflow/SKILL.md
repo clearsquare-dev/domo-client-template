@@ -113,7 +113,7 @@ The tile registry above is not exhaustive — Domo adds new Magic ETL tile types
 2. **Infer the behavior** from the field names and values. For example: `fields[]` with `expression` suggests a formula tile; `inputs[]` (plural) suggests it fans in from multiple streams.
 3. **Display it in the pipeline summary** with your best-effort description, clearly marked as `[UNKNOWN TYPE]` so the user can see it.
 4. **After the summary, flag it to the user** — show the raw unique fields and ask: *"I encountered a tile type I haven't seen before: `TypeName`. Here's what its JSON looks like — want me to add it to the skill so I'll recognize it in the future?"*
-5. **If the user says yes**, update the `Action types and what to look for` table in this skill file (`.claude/skills/domo-dataflow/SKILL.md`) with a new row describing the type and its key fields.
+5. **If the user says yes**, update the `Action types and what to look for` table in this skill file (`/Users/cristiancruz/.claude/skills/domo-dataflow/SKILL.md`) with a new row describing the type and its key fields.
 
 This keeps the registry growing organically as we explore more dataflows.
 

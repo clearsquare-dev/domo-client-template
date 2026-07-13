@@ -288,6 +288,7 @@ npm update -g ryuu # Update CLI
 - `references/cli-commands.md` - Complete CLI reference
 - `references/deployment.md` - Multi-environment deployment
 - `references/dashboard-card-building.md` - Dashboard cards, Beast Modes, layout
+- `references/dashboard-filter-integration.md` - Reacting to native Domo filter cards (dropdown/radio/category) from a custom app via `domo.onFiltersUpdated`
 - `references/code-engine-patterns.md` - Code Engine serverless functions
 - `references/mcp-tools-integration.md` - MCP tool automation for app development
 - `examples/` - Example projects and patterns
