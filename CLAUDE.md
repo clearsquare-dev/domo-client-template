@@ -167,6 +167,8 @@ Use the `Skill` tool to invoke these before taking action:
 | **Query column values from a dataset** | `domo-query-dataset`      |
 | **Read / modify a Magic ETL dataflow** | `domo-dataflow`           |
 | **Build / modify a Domo Custom App**   | `domo-apps`               |
+| **Read / diagnose a Domo card**        | `domo-card`               |
+| **Build a prospect demo dashboard**    | `domo-prospect-demo`      |
 
 ## 📖 Common Endpoints Reference
 

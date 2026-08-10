@@ -1,0 +1,7 @@
+{
+  "name": "<COMPANY_SLUG>-demo",
+  "version": "1.0.0",
+  "fullpage": true,
+  "size": { "width": 6, "height": 4 },
+  "datasetsMapping": []
+}

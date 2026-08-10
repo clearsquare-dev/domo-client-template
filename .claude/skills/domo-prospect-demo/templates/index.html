@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><COMPANY_NAME> Demo Dashboard</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('<COMPANY_SLUG>-demo-theme');
+        var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+
+  <script src="https://cdn.domo.com/domo.js/1/domo.js"></script>
+  <script
+    src="https://unpkg.com/ryuu.js@4.6.0/dist/domo.js"
+    integrity="sha384-YYsd9wQ+wDlUWhvpfGdptxmNYIqBC+52oJtWgPKJadbs3sSFTY/+ZotPbEHTTRWz"
+    crossorigin="anonymous">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <div id="loading" class="loading-screen">Loading...</div>
+  <div id="error" class="error-screen" style="display:none"></div>
+
+  <div id="app" class="app-shell" style="display:none">
+    <div class="brand-bar"></div>
+
+    <header class="app-header">
+      <div class="brand-block">
+        <div id="logo-chip" class="logo-chip" style="display:none">
+          <img id="brand-logo" src="" alt="" />
+        </div>
+        <div>
+          <h1 id="brand-title" class="brand-title"></h1>
+          <p id="brand-subtitle" class="brand-subtitle"></p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="last-updated" class="last-updated"></span>
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg id="icon-sun" class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+          </svg>
+          <svg id="icon-moon" class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div id="filters-bar" class="filters-bar">
+      <div class="filter-group">
+        <label for="filter-period">Period</label>
+        <select id="filter-period"></select>
+      </div>
+      <div class="filter-group">
+        <label for="filter-category"><CATEGORY_LABEL></label>
+        <select id="filter-category"></select>
+      </div>
+    </div>
+
+    <div id="kpi-grid" class="kpi-grid"></div>
+
+    <div class="table-grid">
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h2 class="chart-title" id="trend-chart-title"></h2>
+          <span id="trend-chart-stat" class="chart-stat"></span>
+        </div>
+        <div id="trend-chart"></div>
+      </div>
+      <div class="chart-card">
+        <h2 class="chart-title" id="breakdown-chart-title"></h2>
+        <div id="breakdown-chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
