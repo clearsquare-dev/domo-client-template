@@ -99,11 +99,43 @@ Parse and summarize the flow for the user. The key sections are:
 | `WindowAction` | `groupRules[]` (PARTITION BY columns), `orderRules[]` (ORDER BY columns with `ascending`), `additions[]` (output cols, each has `name` and `operation.operationType` like `ROW_NUMBER`, `RANK`, `SUM`) |
 | `Constant` | `fields[]` — each adds a hardcoded column: `name` (output col), `value` (literal string), `type` (`STRING`, `LONG`, etc.), `expr` (null if literal). Used to tag rows with a static label (e.g. office name) before a UnionAll. |
 | `UnionAll` | `inputs[]` (list of tile IDs to stack), `unionType` (`INCLUDE_ALL` = keep all rows including duplicates), `schemaSource` (tile ID whose column list defines the output schema), `strict` (false = tolerate missing cols) |
+| `SQL` | Native Magic ETL SQL tile. `inputs[]` (tile IDs it can read), `statements[]` (one SQL string; CTEs and window functions allowed), `settings.sqlDialect` (`MAGIC`). Upstream tiles are referenced **by tile name in backticks** (`FROM \`Stripe Refunds\``). Output schema is inferred from the SELECT. See "Writing SQL tiles" below. |
+| `PythonEngineAction` | Python script tile. `script` (the code; reads inputs with `read_dataframe('<tile name>')` and writes with `write_dataframe(df)`), `condaEnv` (e.g. `domo-2`), `inputs[]`, `removeByDefault` |
+| `Normalizer` | Unpivot (columns to rows). `typefield` (name of the new category column), `fields[]` — each has `sourceField` (column being unpivoted), `typefieldValue` (label written into `typefield`), `destField` (value column name) |
+| `ValueMapper` | Lookup-style value replacement. `fieldToUse` (input column), `targetField` (output column, may differ from input), `mappings[]` (each `from` → `to`, with optional `fromExpr`/`toExpr`), `unmappedBehavior` (`KEEP_ORIGINAL` etc.) |
+| `TextFormatting` | Case/number formatting per column. `fields[]` — each has `name`, `letterCaseMod` (`LOWER`, `UPPER`, `NONE`), `numberMod` |
+| `Order` | Sort rows. `orderBy[]` — each has `orderType` (`ASCENDING`/`DESCENDING`) and `expression.name` (column) |
 
 When summarizing, describe the flow as a pipeline:
 - What datasets flow in (from `inputs`)
 - Each transformation in order (follow `dependsOn` chains)
 - What comes out and where it goes
+
+### Writing SQL tiles (consolidating GUI tiles)
+
+Use this when replacing chains of GUI tiles with a native `SQL` tile. Verified against real data on this instance (2026-09-03):
+
+- **Engine semantics match SQL.** Magic ETL `MergeJoin` string keys are case-sensitive and `NULL` never matches `NULL`. Do not add `LOWER()` to a join key unless the original flow had a Lower tile on it.
+- **Rank-then-filter patterns** (`WindowAction` RANK → `Filter` = 1) should be rewritten with `RANK()` (not `ROW_NUMBER()`) so tie fan-out stays identical. `groupRules[].caseSensitive: false` means `PARTITION BY LOWER(col)`.
+- **Several `LEFT JOIN`s on the same key** from the main stream can be collapsed into one lookup table built as `UNION` of keys + `LEFT JOIN`s of each sub-result; it is row-for-row equivalent.
+- **Keep the last `Unique` tile** if it dedupes on a subset of columns — it has "first row wins" semantics that SQL `DISTINCT` cannot reproduce.
+- **Verify** by running the copy and comparing both outputs to the originals as multisets (pull all rows via the query API). Check that no input dataset updated between runs.
+
+Tile JSON template (add a matching `{"id", "type": "Tile", "x", "y"}` entry to `gui.canvases.default.elements`; tiles inside a `Section` use coordinates relative to that section):
+
+```json
+{
+  "type": "SQL", "id": "SQL-<uuid>", "name": "Refund Summary",
+  "dependsOn": ["<input tile id>", "..."], "inputs": ["<input tile id>", "..."],
+  "settings": {"sqlDialect": "MAGIC", "preferredDatabaseEntityType": "TEMP_VIEW"},
+  "notes": [], "columnSettings": {},
+  "statements": ["WITH x AS (SELECT ... FROM `Stripe Refunds`) SELECT ... FROM x"],
+  "tables": [{"name": "Refund Summary", "id": "SQL-<uuid>", "previewRowLimit": null}],
+  "gui": {"x": 2560, "y": 96, "color": null, "colorSource": null, "sampleJson": null}
+}
+```
+
+Dialect notes: MySQL-flavored — `IFNULL`, `DATEDIFF(a,b)`, `CURDATE()`, `DATE_ADD(d, INTERVAL 1 YEAR)`, `STR_TO_DATE`, `CAST(NULL AS STRING)`, `LAG/LEAD/RANK/ROW_NUMBER ... OVER`, `COUNT(DISTINCT)`, `a.*` on CTE aliases. Column names with spaces go in backticks.
 
 ### Handling unknown tile types
 
@@ -113,7 +145,7 @@ The tile registry above is not exhaustive — Domo adds new Magic ETL tile types
 2. **Infer the behavior** from the field names and values. For example: `fields[]` with `expression` suggests a formula tile; `inputs[]` (plural) suggests it fans in from multiple streams.
 3. **Display it in the pipeline summary** with your best-effort description, clearly marked as `[UNKNOWN TYPE]` so the user can see it.
 4. **After the summary, flag it to the user** — show the raw unique fields and ask: *"I encountered a tile type I haven't seen before: `TypeName`. Here's what its JSON looks like — want me to add it to the skill so I'll recognize it in the future?"*
-5. **If the user says yes**, update the `Action types and what to look for` table in this skill file (`/Users/cristiancruz/.claude/skills/domo-dataflow/SKILL.md`) with a new row describing the type and its key fields.
+5. **If the user says yes**, update the `Action types and what to look for` table in this skill file (`.claude/skills/domo-dataflow/SKILL.md` in the project root) with a new row describing the type and its key fields.
 
 This keeps the registry growing organically as we explore more dataflows.
 
