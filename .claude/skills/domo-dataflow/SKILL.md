@@ -162,16 +162,40 @@ This keeps the registry growing organically as we explore more dataflows.
 
 1. Load the saved JSON: `cat /tmp/dataflow_<id>.json`
 2. Make the targeted change in Python (don't guess at the structure — read the actual action first)
-3. Write the modified JSON to a new temp file: `/tmp/dataflow_<id>_updated.json`
-4. PUT it back — the entire definition must be sent (Domo replaces the whole record):
+3. **Set the version description (REQUIRED on every PUT).** Every saved version must carry a
+   human-readable comment — it is what shows under *Details > Versions* in the UI
+   (`/datacenter/dataflows/<id>/details#versions`). Set it in the same payload:
+   ```python
+   flow['onboardFlowVersion']['description'] = 'Tenure Bucket now derived from Member Tenure (days)'
+   ```
+   **Keep it SHORT: one plain sentence, aim for under 120 characters** — like a good git commit
+   subject line. Say *what* changed; skip the rationale, column lists and tile-by-tile detail (those
+   belong in SQL comments or the chat). Good: `"Drop Membership Type v2 column (duplicate of Membership Type)"`,
+   `"Tenure buckets now based on Member Tenure (days)"`, `"Move suspended-date lookup into Resolve Memberpress"`.
+   Bad: anything with a semicolon, a parenthetical list of columns, or a "so that..." clause.
+   Hard limit **253 characters** — longer makes the whole PUT fail with `VALIDATION-SIZE` on
+   `dataFlowVersion.description` (a JSON *list* of errors comes back instead of the dataflow; nothing is
+   saved). Assert the length in your build script *before* the PUT.
+   If you leave it as-is, the new version silently inherits the previous version's comment, which
+   is wrong and misleading. This is **not** the dataflow `description` (the subtitle shown on the
+   dataflow itself) — never touch that field for a version note.
+4. **Version guard.** Re-GET the dataflow and compare `onboardFlowVersion.versionNumber` with the
+   version your local copy was built from. If it moved (someone saved in the UI), stop, re-fetch,
+   and rebuild from the fresh copy. Use an explicit `if … exit 1`, not a bare `&&` chain.
+5. Write the modified JSON to a new temp file: `/tmp/dataflow_<id>_updated.json`
+6. PUT it back — the entire definition must be sent (Domo replaces the whole record):
 
 ```bash
 curl -s -X PUT "https://$DOMO_INSTANCE/api/dataprocessing/v1/dataflows/<id>" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json" \
   -d @/tmp/dataflow_<id>_updated.json \
-  | python3 -c "import json,sys; d=json.load(sys.stdin); print('OK' if 'id' in d else d)"
+  | python3 -c "import json,sys; d=json.load(sys.stdin); v=d.get('onboardFlowVersion',{}); print('OK' if 'id' in d else d, '| version', v.get('versionNumber'), '|', v.get('description'))"
 ```
+
+The response echoes the new `versionNumber` and `description` — confirm the description is the one
+you just wrote. `GET /api/dataprocessing/v1/dataflows/<id>/versions` lists every version with its
+comment (newest first) if you need to audit.
 
 ### Common edit patterns
 
@@ -240,5 +264,6 @@ for action in flow['actions']:
 - **Never use `?hydrate=full`** on the dataflows endpoint — it causes 400 errors.
 - **PUT always replaces the entire definition** — never send a partial payload.
 - **Always GET the current state** before constructing a PUT — never edit from memory or a stale file.
+- **Every PUT must set `onboardFlowVersion.description`** with a SHORT one-line version comment (aim < 120 chars, hard max 253; see *How to edit safely*, step 3). No exceptions — the user audits the Versions tab.
 - **Do not execute the dataflow** (POST to `/executions`) unless the user explicitly asks.
 - Follow the read-only default from CLAUDE.md — summarize and confirm before any write.
