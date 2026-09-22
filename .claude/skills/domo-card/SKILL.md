@@ -234,6 +234,30 @@ for f in (json.load(sys.stdin).get('properties',{}).get('formulas',{}).get('form
 
 ---
 
+## Recipe 4b: Analyzer definition (exact shape used to save a card)
+
+`PUT /api/content/v3/cards/kpi/definition` with `{"urn":"<cardId>"}` returns the card exactly as the
+Analyzer holds it — `subscriptions.main.columns` with mappings, `charts.main.chartType`/`overrides`,
+`formulas`, `segments`, plus the dataset `columns`. This is the ground truth for column mappings and
+overrides, and the template to copy when building a card of the same type (see `domo-app-studio-build`).
+
+```bash
+curl -s -X PUT "https://$DOMO_INSTANCE/api/content/v3/cards/kpi/definition" \
+  -H "$AUTH_HEADER" -H "Content-Type: application/json" -d '{"urn":"'"$CARD"'"}' \
+ | python3 -c "
+import json, sys
+d = json.load(sys.stdin)['definition']; m = d['subscriptions']['main']
+print(d['charts']['main']['chartType'], d['charts']['main'].get('overrides'))
+for c in m['columns']: print('  ', c.get('column') or c.get('formulaId'), c['mapping'], c.get('aggregation',''))
+print('groupBy', m.get('groupBy')); print('orderBy', m.get('orderBy'))
+"
+```
+
+Note the read/write mismatch: this returns `formulas` as a list and `segments` as `{active, definitions}`;
+the save endpoint wants `formulas: {dsUpdated, dsDeleted, card}` and `segments: {active, create, update, delete}`.
+
+---
+
 ## Recipe 5: Lineage — what feeds this card
 
 ```bash
@@ -327,6 +351,7 @@ All verified against a live instance on 2026-08-04.
 | :--- | :--- | :--- |
 | Find card by name | POST | `/api/search/v1/query` (body `entityList:[["card"]]`) |
 | Card metadata + parts | GET | `/api/content/v1/cards?urns={csv}&parts={csv}` |
+| Analyzer definition (ground truth for mappings/overrides) | PUT | `/api/content/v3/cards/kpi/definition` body `{"urn":"<id>"}` |
 | Rendered data | POST | `/api/content/v1/cards/{id}/data` (body `{}`) |
 | Full column universe | GET | `/api/content/v1/cards/{id}/details` |
 | Cards on a page | GET | `/api/content/v1/pages/{pageId}/cards` |

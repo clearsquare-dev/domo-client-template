@@ -169,6 +169,7 @@ Use the `Skill` tool to invoke these before taking action:
 | **Build / modify a Domo Custom App**   | `domo-apps`               |
 | **Read / diagnose a Domo card**        | `domo-card`               |
 | **Build a prospect demo dashboard**    | `domo-prospect-demo`      |
+| **Create datasets, native KPI cards, App Studio pages/layouts via API** | `domo-app-studio-build` |
 
 ## 📖 Common Endpoints Reference
 
