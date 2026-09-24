@@ -23,8 +23,9 @@ interacting with a client's Domo instance via Claude Code and the Domo CLI.
 
 ## 🛡️ Security & Environment
 
-- **Local Credentials:** Any Domo CLI sessions are isolated to `./.domo_cli`. If
-  this is not yet created and you need the CLI fallback, create it.
+- **Local Credentials:** Any Domo CLI sessions are isolated to
+  `./.domo_cli/home` (a fake `HOME` for the CLI — see **Domo CLI jail** below).
+  If this is not yet created and you need the CLI, create it.
 - **Environment Variables:** Instance settings are pulled from the local `.env`
   file.
 - **Write Safety:** NEVER perform write operations (POST/PUT/DELETE) without an
@@ -49,7 +50,7 @@ interacting with a client's Domo instance via Claude Code and the Domo CLI.
 ```text
 .
 ├── .claude/skills/     # Bundled Domo skills (auto-discovered on clone)
-├── .domo_cli/          # Isolated Domo CLI credentials, if used [gitignored]
+├── .domo_cli/home/     # Isolated Domo CLI HOME + session, if used [gitignored]
 ├── manual/             # Main workspace for analysis and data engineering
 ├── apps/               # Domo Custom Apps
 ├── qa/                 # Quality Assurance (mostly one-off)
@@ -97,19 +98,20 @@ only sign in interactively and cannot mint an access token. This path reaches th
 
 > **Prerequisite — a one-time human login the agent CANNOT perform.**
 > `domo login` is an interactive browser flow. A human must run it once, scoped
-> to the project jail, after installing the Domo CLI:
+> to the project jail (see **Domo CLI jail** below), from the project root:
 >
 > ```bash
-> export XDG_CONFIG_HOME="$PWD/.domo_cli" && domo login -i <instance>.domo.com
+> env -u XDG_CONFIG_HOME HOME="$PWD/.domo_cli/home" domo login -i <instance>.domo.com
+> # or, with the domo() shell function set up: domo login -i <instance>.domo.com
 > ```
 >
-> This writes `./.domo_cli/configstore/ryuu/<instance>.domo.com.json` containing a
-> long-lived `refreshToken`.
+> This writes `./.domo_cli/home/.config/configstore/ryuu/<instance>.domo.com.json`
+> containing a long-lived `refreshToken`.
 
 **Agent rules for this path:**
 
 1. **Check for the session file first.** If
-   `./.domo_cli/configstore/ryuu/$DOMO_INSTANCE.json` does not exist, **STOP and
+   `./.domo_cli/home/.config/configstore/ryuu/$DOMO_INSTANCE.json` does not exist, **STOP and
    ask the human to run the login command above.** Never attempt to automate the
    browser login.
 2. **If the session exists, derive a SID autonomously** with the snippet below.
@@ -124,7 +126,7 @@ only sign in interactively and cannot mint an access token. This path reaches th
 if [ -f .env ]; then export $(grep -v '^#' .env | xargs); fi
 
 # 2. Local session path (the "jail")
-LOCAL_CONFIG="./.domo_cli/configstore/ryuu/$DOMO_INSTANCE.json"
+LOCAL_CONFIG="./.domo_cli/home/.config/configstore/ryuu/$DOMO_INSTANCE.json"
 
 if [ -f "$LOCAL_CONFIG" ]; then
   # 3. refresh_token -> access_token -> SID
@@ -142,9 +144,69 @@ if [ -f "$LOCAL_CONFIG" ]; then
   # Use SID in header: "X-Domo-Authentication: $SID"
 else
   echo "No local session. A human must run:"
-  echo "  export XDG_CONFIG_HOME=\"\$PWD/.domo_cli\" && domo login -i $DOMO_INSTANCE"
+  echo "  env -u XDG_CONFIG_HOME HOME=\"\$PWD/.domo_cli/home\" domo login -i $DOMO_INSTANCE"
 fi
 ```
+
+---
+
+### Domo CLI jail (login, publish, any `domo` command)
+
+Every `domo` command for this project must run with `HOME` pointed at
+`./.domo_cli/home`, so it uses this project's session and never the user's
+global login (which may be a different client's instance).
+
+**Humans — one-time shell setup.** Add this function to `~/.zshrc` (then
+`source ~/.zshrc`). Inside any folder with a `.domo_cli/home` above it, plain
+`domo` uses that project's session; anywhere else it uses the global login:
+
+```zsh
+domo() {
+  local dir="$PWD"
+  while [[ "$dir" != "/" ]]; do
+    if [[ -d "$dir/.domo_cli/home" ]]; then
+      print -u2 "→ domo: using project session in ${dir:t}"
+      env -u XDG_CONFIG_HOME HOME="$dir/.domo_cli/home" domo "$@"
+      return
+    fi
+    dir="${dir:h}"
+  done
+  command domo "$@"
+}
+```
+
+With that in place, from the project root run `mkdir -p .domo_cli/home` once
+(so the function finds the jail), then `domo login -i <instance>.domo.com`; from
+an app folder, `domo publish`. Check for the `→ domo: using project session`
+line to confirm which project was picked.
+
+**Agents — always use the explicit form.** The agent's shell does not load the
+user's `~/.zshrc`, so a bare `domo` hits the global session. Always prefix:
+
+```bash
+# From the project root
+env -u XDG_CONFIG_HOME HOME="$PWD/.domo_cli/home" domo ls
+
+# From an app folder, e.g. apps/my-app/
+env -u XDG_CONFIG_HOME HOME="$PWD/../../.domo_cli/home" domo publish
+```
+
+`domo publish` is a write to the instance: it follows the Write Safety rules
+above (pre-flight summary and explicit user request).
+
+**Why `HOME` and not `XDG_CONFIG_HOME`:** ryuu 5.x picks the "current" instance by
+scanning a hardcoded `$HOME/.config/configstore/ryuu/`, ignoring
+`XDG_CONFIG_HOME`, but reads the token through Configstore, which honors it.
+Setting only `XDG_CONFIG_HOME` makes the CLI select the global instance and then
+fail with `Missing refresh token`. Overriding `HOME` points both lookups at the
+jail. Sessions created with the old `XDG_CONFIG_HOME` method live at
+`./.domo_cli/configstore/ryuu/`; copy them into
+`./.domo_cli/home/.config/configstore/ryuu/` to migrate.
+
+**Sanity check before publishing:** `env -u XDG_CONFIG_HOME HOME="$PWD/.domo_cli/home" domo ls`
+should list designs from `$DOMO_INSTANCE`. If the CLI errors with
+`@domoinc/ryuu-proxy does not provide an export named 'Proxy'`, the global
+`ryuu` install is stale — run `npm install -g ryuu@latest`, then `hash -r`.
 
 ## 📐 API Implementation Rules
 

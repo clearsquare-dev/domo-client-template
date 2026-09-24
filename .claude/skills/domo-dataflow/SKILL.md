@@ -20,7 +20,7 @@ if [ -n "$DOMO_ACCESS_TOKEN" ]; then
   AUTH_HEADER="X-DOMO-Developer-Token: $DOMO_ACCESS_TOKEN"
 else
   # Fallback: no DOMO_ACCESS_TOKEN set — use legacy SID session flow (expires ~1hr, re-run if 401)
-  LOCAL_CONFIG="./.domo_cli/configstore/ryuu/$DOMO_INSTANCE.json"
+  LOCAL_CONFIG="./.domo_cli/home/.config/configstore/ryuu/$DOMO_INSTANCE.json"
   REFRESH_TOKEN=$(python3 -c "import json; print(json.load(open('$LOCAL_CONFIG'))['refreshToken'])")
   ACCESS_TOKEN=$(curl -s -X POST "https://$DOMO_INSTANCE/api/oauth2/token" \
     -H "content-type: application/x-www-form-urlencoded" \
