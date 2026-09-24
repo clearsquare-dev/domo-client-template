@@ -32,10 +32,23 @@ Fill in the **Context for this Project** section at the bottom of `CLAUDE.md`
 Uncomment and set extra vars in `.env` as needed, e.g.
 `FIELDROUTES_INSTANCE=...`.
 
+## 6. (Optional) Domo CLI — publishing Custom Apps
+Only needed to publish pro-code apps (`domo publish`) or use the SID fallback.
+- **Once per machine:** install the CLI (`npm install -g ryuu@latest`) and add the
+  `domo()` shell function from the **Domo CLI jail** section of `CLAUDE.md` to
+  `~/.zshrc`. It makes `domo` use each project's own session automatically, so
+  one client's login never leaks into another's publish.
+- **Once per project**, from the repo root:
+  ```bash
+  mkdir -p .domo_cli/home
+  domo login -i <instance>.domo.com
+  ```
+  Look for `→ domo: using project session in <repo>` to confirm it's jailed.
+
 ---
 
 ### What's already wired up
-- The four Domo skills under `.claude/skills/` — Claude Code auto-discovers them,
+- The Domo skills under `.claude/skills/` — Claude Code auto-discovers them,
   no install needed.
 - Token-first auth (no Python / `jq` required). For instances where you can't
   mint an access token, a Domo CLI / SID fallback is documented in `CLAUDE.md` —

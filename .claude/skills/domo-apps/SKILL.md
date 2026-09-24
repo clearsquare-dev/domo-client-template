@@ -18,9 +18,18 @@ npm install -g ryuu
 # Verify
 domo --version
 
-# Login
-domo login
+# Login — scoped to this project's jail, from the project root (human-only: browser flow)
+env -u XDG_CONFIG_HOME HOME="$PWD/.domo_cli/home" domo login -i <instance>.domo.com
 ```
+
+⚠️ **Always run `domo` commands through the project jail.** A bare `domo login` /
+`domo publish` in the agent's shell uses the user's global session, which may be
+a different client's instance. Agents prefix every session-using command with
+`env -u XDG_CONFIG_HOME HOME="<project-root>/.domo_cli/home"` (from `apps/<app>/`
+that is `HOME="$PWD/../../.domo_cli/home"`). Humans with the `domo()` shell
+function from CLAUDE.md can type plain `domo` inside the project. Do not use
+`XDG_CONFIG_HOME` alone — ryuu 5.x ignores it when choosing the instance and fails
+with `Missing refresh token`. See **Domo CLI jail** in CLAUDE.md.
 
 ### Create New App
 
@@ -47,8 +56,9 @@ my-awesome-app/
 ### Core Workflow
 
 ```bash
-domo dev      # Local dev server at http://localhost:3000 (live reload)
-domo publish  # Deploy to Domo
+# Run from apps/<app>/ — jailed to this project's Domo session
+env -u XDG_CONFIG_HOME HOME="$PWD/../../.domo_cli/home" domo dev      # Local dev server at http://localhost:3000 (live reload)
+env -u XDG_CONFIG_HOME HOME="$PWD/../../.domo_cli/home" domo publish  # Deploy to Domo
 ```
 
 **Note:** `domo dev` proxies data through your authenticated CLI session — no `proxyId` needed for dataset queries.
@@ -250,16 +260,28 @@ Same version = overwrite. Increment `manifest.json` version before publishing if
 
 ## Key Commands
 
+Shown as a human types them with the `domo()` shell function from CLAUDE.md.
+Agents replace `domo` with `env -u XDG_CONFIG_HOME HOME="<project-root>/.domo_cli/home" domo`
+for every command except `init`, `--version`, and the npm update:
+
 ```bash
-domo init -n "name" -t "hello world" --no-datasets  # Create new app
-domo dev           # Local dev server (live reload, no proxyId needed)
-domo publish       # Deploy to Domo (run from project root)
-domo login         # Authenticate to instance
-domo --version     # Check CLI version
-npm update -g ryuu # Update CLI
+domo init -n "name" -t "hello world" --no-datasets  # Create new app (no session needed)
+domo dev              # Local dev server (live reload, no proxyId needed)
+domo publish          # Deploy to Domo (run from the app folder)
+domo login -i <instance>.domo.com  # Authenticate (human-only)
+domo ls               # Sanity check: lists designs on the jailed instance
+domo --version        # Check CLI version
+npm install -g ryuu@latest && hash -r  # Update CLI
 ```
 
 ## Troubleshooting
+
+**CLI publishes to / prompts for the wrong instance, or `Missing refresh token`:**
+- The command ran outside the project jail (global session) or used `XDG_CONFIG_HOME` alone. Re-run with `env -u XDG_CONFIG_HOME HOME="<project-root>/.domo_cli/home" domo ...`.
+- Human with the `domo()` function but no `→ domo: using project session` line: `.domo_cli/home` doesn't exist yet in the project root — `mkdir -p .domo_cli/home`, then log in again.
+
+**`@domoinc/ryuu-proxy' does not provide an export named 'Proxy'`:**
+- Stale global `ryuu` install (often an old copy in `/usr/local`). `npm install -g ryuu@latest`, then `hash -r` and confirm `which domo` points at the new install.
 
 **`domo` is not defined:**
 - Missing the two CDN scripts in `<head>` — `domo init` does NOT include them automatically. Add both (domo.js + ryuu.js) as shown in the Standard App Structure above.
