@@ -232,6 +232,7 @@ Use the `Skill` tool to invoke these before taking action:
 | **Read / diagnose a Domo card**        | `domo-card`               |
 | **Build a prospect demo dashboard**    | `domo-prospect-demo`      |
 | **Create datasets, native KPI cards, App Studio pages/layouts via API** | `domo-app-studio-build` |
+| **Build / deploy Workflows + Code Engine packages (REST, no MCP)** | `domo-workflow-rest` |
 
 ## 📖 Common Endpoints Reference
 
